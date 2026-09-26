@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>TUI Notes App</title>
+  <title>TUI Notes App (Firebase Cloud)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&display=swap" rel="stylesheet">
@@ -35,7 +35,7 @@
       padding: 1.5rem;
     }
 
-    /* Terminal Window Container */
+    /* Terminal Container */
     .terminal {
       max-width: 900px;
       margin: 0 auto;
@@ -50,7 +50,7 @@
       flex: 1;
     }
 
-    /* Top Bar */
+    /* Header */
     .terminal-header {
       background-color: var(--border-color);
       padding: 0.5rem 1rem;
@@ -66,15 +66,7 @@
       font-weight: 600;
     }
 
-    .terminal-controls span {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      margin-left: 6px;
-    }
-
-    /* Layout Content */
+    /* Layout */
     .terminal-body {
       display: grid;
       grid-template-columns: 280px 1fr;
@@ -88,7 +80,7 @@
       }
     }
 
-    /* Sidebar / Left Column */
+    /* Sidebar */
     .sidebar {
       border-right: 1px solid var(--border-color);
       padding: 1rem;
@@ -165,7 +157,7 @@
       background-color: rgba(63, 185, 80, 0.05);
     }
 
-    /* Main Content Area */
+    /* Main Area */
     .main-area {
       padding: 1.2rem;
       display: flex;
@@ -242,15 +234,12 @@
 <body>
 
   <div class="terminal">
-    <!-- Header -->
     <div class="terminal-header">
-      <span class="terminal-title">user@tui-notes:~#</span>
-      <span>[ TUI Notes v1.0 ]</span>
+      <span class="terminal-title">user@meow-notesplus:~#</span>
+      <span>[ Cloud Firebase Mode ]</span>
     </div>
 
-    <!-- Body -->
     <div class="terminal-body">
-      <!-- Sidebar -->
       <div class="sidebar">
         <button class="btn" id="btn-new">+ Nueva Nota</button>
         
@@ -262,9 +251,8 @@
         <ul class="notes-list" id="notes-list"></ul>
       </div>
 
-      <!-- Main Editor/Viewer -->
       <div class="main-area">
-        <div class="prompt-line" id="prompt-status">&gt; Selecciona o crea una nueva nota</div>
+        <div class="prompt-line" id="prompt-status">&gt; Conectando a la nube...</div>
         
         <div class="note-editor" id="editor-container" style="display: none;">
           <input type="text" id="note-title" class="input-field" placeholder="Paso 1: Escribe el título de la nota..." />
@@ -272,23 +260,51 @@
           
           <div class="editor-actions">
             <button class="btn btn-delete" id="btn-delete">Borrar</button>
-            <button class="btn btn-save" id="btn-save">Guardar Nota</button>
+            <button class="btn btn-save" id="btn-save">Guardar en la Nube</button>
           </div>
         </div>
 
         <div class="empty-state" id="empty-state">
-          [ Presiona "+ Nueva Nota" para registrar una nota con un título inicial ]
+          [ Cargando notas desde Firebase... ]
         </div>
       </div>
     </div>
   </div>
 
-  <script>
-    // Variables de estado
-    let notes = JSON.parse(localStorage.getItem('tui_notes')) || [];
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getFirestore, 
+      collection, 
+      onSnapshot, 
+      addDoc, 
+      doc, 
+      updateDoc, 
+      deleteDoc, 
+      query, 
+      orderBy 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // Configuración obtenida de tu proyecto "meow-notesplus-app"
+    const firebaseConfig = {
+      apiKey: "AIzaSyCuuMR8vtXJE75LmafzwKR7Ak0knMWReI",
+      authDomain: "meow-notesplus-app.firebaseapp.com",
+      projectId: "meow-notesplus-app",
+      storageBucket: "meow-notesplus-app.firebasestorage.app",
+      messagingSenderId: "980409744064",
+      appId: "1:980409744064:web:e2f3ed9a051fd369868b25"
+    };
+
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const notesRef = collection(db, "notes");
+
+    // Estado global
+    let notes = [];
     let activeNoteId = null;
 
-    // Elementos DOM
+    // DOM Elements
     const btnNew = document.getElementById('btn-new');
     const searchInput = document.getElementById('search-input');
     const notesList = document.getElementById('notes-list');
@@ -300,12 +316,30 @@
     const btnDelete = document.getElementById('btn-delete');
     const promptStatus = document.getElementById('prompt-status');
 
-    // Renderizar lista de notas
+    // Escuchar notas en tiempo real
+    const q = query(notesRef, orderBy("createdAt", "desc"));
+    onSnapshot(q, (snapshot) => {
+      notes = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      promptStatus.textContent = '> Conectado a Firebase Firestore.';
+      if (!activeNoteId && notes.length === 0) {
+        emptyState.textContent = '[ Presiona "+ Nueva Nota" para guardar tu primera nota en la nube ]';
+      }
+      renderNotes(searchInput.value);
+    }, (error) => {
+      console.error("Error al obtener notas:", error);
+      promptStatus.textContent = '> Error de conexión con Firebase.';
+    });
+
+    // Renderizar lista filtrada
     function renderNotes(filterText = '') {
       notesList.innerHTML = '';
       
       const filteredNotes = notes.filter(note => 
-        note.title.toLowerCase().includes(filterText.toLowerCase())
+        (note.title || '').toLowerCase().includes(filterText.toLowerCase())
       );
 
       if (filteredNotes.length === 0) {
@@ -322,7 +356,7 @@
       });
     }
 
-    // Iniciar creación de nueva nota
+    // Iniciar nueva nota
     function startNewNote() {
       activeNoteId = null;
       noteTitle.value = '';
@@ -331,12 +365,12 @@
       editorContainer.style.display = 'flex';
       emptyState.style.display = 'none';
       
-      promptStatus.textContent = '> Creando nueva nota. Ingrese título y contenido:';
+      promptStatus.textContent = '> Nueva nota. Escribe el título primero:';
       renderNotes(searchInput.value);
       noteTitle.focus();
     }
 
-    // Seleccionar nota existente
+    // Seleccionar nota
     function selectNote(id) {
       const note = notes.find(n => n.id === id);
       if (!note) return;
@@ -352,59 +386,63 @@
       renderNotes(searchInput.value);
     }
 
-    // Guardar nota
-    function saveNote() {
+    // Guardar / Actualizar en Firestore
+    async function saveNote() {
       const title = noteTitle.value.trim();
       const content = noteContent.value;
 
       if (!title) {
-        alert('Por favor, ingresa un título para la nota primero.');
+        alert('Por favor, ingresa un título antes de guardar.');
         noteTitle.focus();
         return;
       }
 
-      if (activeNoteId === null) {
-        // Crear nueva
-        const newNote = {
-          id: Date.now().toString(),
-          title: title,
-          content: content,
-          updatedAt: new Date().toISOString()
-        };
-        notes.unshift(newNote);
-        activeNoteId = newNote.id;
-      } else {
-        // Actualizar existente
-        const note = notes.find(n => n.id === activeNoteId);
-        if (note) {
-          note.title = title;
-          note.content = content;
-          note.updatedAt = new Date().toISOString();
+      promptStatus.textContent = '> Guardando en la nube...';
+
+      try {
+        if (activeNoteId === null) {
+          const docRef = await addDoc(notesRef, {
+            title: title,
+            content: content,
+            createdAt: new Date().toISOString()
+          });
+          activeNoteId = docRef.id;
+        } else {
+          const noteDoc = doc(db, "notes", activeNoteId);
+          await updateDoc(noteDoc, {
+            title: title,
+            content: content,
+            updatedAt: new Date().toISOString()
+          });
+        }
+        promptStatus.textContent = `> Nota "${title}" guardada correctamente.`;
+      } catch (err) {
+        console.error(err);
+        promptStatus.textContent = '> Error al guardar en Firebase.';
+      }
+    }
+
+    // Eliminar de Firestore
+    async function deleteNote() {
+      if (!activeNoteId) return;
+
+      if (confirm('¿Eliminar esta nota permanentemente de la nube?')) {
+        promptStatus.textContent = '> Eliminando nota...';
+        try {
+          await deleteDoc(doc(db, "notes", activeNoteId));
+          activeNoteId = null;
+          editorContainer.style.display = 'none';
+          emptyState.style.display = 'block';
+          emptyState.textContent = '[ Selecciona o crea una nota ]';
+          promptStatus.textContent = '> Nota eliminada.';
+        } catch (err) {
+          console.error(err);
+          promptStatus.textContent = '> Error al eliminar la nota.';
         }
       }
-
-      localStorage.setItem('tui_notes', JSON.stringify(notes));
-      promptStatus.textContent = `> Nota "${title}" guardada con éxito.`;
-      renderNotes(searchInput.value);
     }
 
-    // Eliminar nota
-    function deleteNote() {
-      if (activeNoteId === null) return;
-
-      if (confirm('¿Deseas eliminar esta nota?')) {
-        notes = notes.filter(n => n.id !== activeNoteId);
-        localStorage.setItem('tui_notes', JSON.stringify(notes));
-        
-        activeNoteId = null;
-        editorContainer.style.display = 'none';
-        emptyState.style.display = 'block';
-        promptStatus.textContent = '> Nota eliminada.';
-        renderNotes(searchInput.value);
-      }
-    }
-
-    // Event Listeners
+    // Event listeners
     btnNew.addEventListener('click', startNewNote);
     btnSave.addEventListener('click', saveNote);
     btnDelete.addEventListener('click', deleteNote);
@@ -412,9 +450,6 @@
     searchInput.addEventListener('input', (e) => {
       renderNotes(e.target.value);
     });
-
-    // Inicialización
-    renderNotes();
   </script>
 </body>
 </html>
