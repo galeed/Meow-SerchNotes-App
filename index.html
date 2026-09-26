@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TUI Notes App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0d1117;
+      --panel-bg: #161b22;
+      --border-color: #30363d;
+      --accent-color: #58a6ff;
+      --accent-green: #3fb950;
+      --text-color: #c9d1d9;
+      --text-muted: #8b949e;
+      --danger-color: #f85149;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Fira Code', monospace;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem;
+    }
+
+    /* Terminal Window Container */
+    .terminal {
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+      border: 2px solid var(--border-color);
+      background-color: var(--panel-bg);
+      border-radius: 6px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    /* Top Bar */
+    .terminal-header {
+      background-color: var(--border-color);
+      padding: 0.5rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .terminal-title {
+      color: var(--accent-color);
+      font-weight: 600;
+    }
+
+    .terminal-controls span {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-left: 6px;
+    }
+
+    /* Layout Content */
+    .terminal-body {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      flex: 1;
+      min-height: 500px;
+    }
+
+    @media (max-width: 768px) {
+      .terminal-body {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Sidebar / Left Column */
+    .sidebar {
+      border-right: 1px solid var(--border-color);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .btn {
+      background-color: transparent;
+      border: 1px solid var(--accent-color);
+      color: var(--accent-color);
+      padding: 0.6rem 1rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+      font-weight: 600;
+    }
+
+    .btn:hover {
+      background-color: var(--accent-color);
+      color: var(--bg-color);
+    }
+
+    .search-box {
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--bg-color);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      padding: 0.5rem 0.5rem 0.5rem 1.8rem;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent-color);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .notes-list {
+      list-style: none;
+      overflow-y: auto;
+      max-height: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .note-item {
+      padding: 0.5rem;
+      border: 1px dashed var(--border-color);
+      cursor: pointer;
+      font-size: 0.85rem;
+      word-break: break-all;
+      transition: border-color 0.2s;
+    }
+
+    .note-item:hover, .note-item.active {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+      background-color: rgba(63, 185, 80, 0.05);
+    }
+
+    /* Main Content Area */
+    .main-area {
+      padding: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .prompt-line {
+      color: var(--accent-green);
+      font-size: 0.9rem;
+    }
+
+    .note-editor {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      height: 100%;
+    }
+
+    .input-field {
+      background-color: var(--bg-color);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      padding: 0.6rem;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .input-field:focus {
+      border-color: var(--accent-color);
+    }
+
+    textarea.input-field {
+      resize: vertical;
+      min-height: 250px;
+      flex: 1;
+      line-height: 1.5;
+    }
+
+    .editor-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+    }
+
+    .btn-save {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    .btn-save:hover {
+      background-color: var(--accent-green);
+      color: var(--bg-color);
+    }
+
+    .btn-delete {
+      border-color: var(--danger-color);
+      color: var(--danger-color);
+    }
+
+    .btn-delete:hover {
+      background-color: var(--danger-color);
+      color: var(--bg-color);
+    }
+
+    .empty-state {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      text-align: center;
+      margin-top: 3rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="terminal">
+    <!-- Header -->
+    <div class="terminal-header">
+      <span class="terminal-title">user@tui-notes:~#</span>
+      <span>[ TUI Notes v1.0 ]</span>
+    </div>
+
+    <!-- Body -->
+    <div class="terminal-body">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <button class="btn" id="btn-new">+ Nueva Nota</button>
+        
+        <div class="search-box">
+          <span class="search-icon">&gt;</span>
+          <input type="text" id="search-input" class="search-input" placeholder="Buscar por título..." />
+        </div>
+
+        <ul class="notes-list" id="notes-list"></ul>
+      </div>
+
+      <!-- Main Editor/Viewer -->
+      <div class="main-area">
+        <div class="prompt-line" id="prompt-status">&gt; Selecciona o crea una nueva nota</div>
+        
+        <div class="note-editor" id="editor-container" style="display: none;">
+          <input type="text" id="note-title" class="input-field" placeholder="Paso 1: Escribe el título de la nota..." />
+          <textarea id="note-content" class="input-field" placeholder="Paso 2: Escribe el contenido de la nota aquí..."></textarea>
+          
+          <div class="editor-actions">
+            <button class="btn btn-delete" id="btn-delete">Borrar</button>
+            <button class="btn btn-save" id="btn-save">Guardar Nota</button>
+          </div>
+        </div>
+
+        <div class="empty-state" id="empty-state">
+          [ Presiona "+ Nueva Nota" para registrar una nota con un título inicial ]
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Variables de estado
+    let notes = JSON.parse(localStorage.getItem('tui_notes')) || [];
+    let activeNoteId = null;
+
+    // Elementos DOM
+    const btnNew = document.getElementById('btn-new');
+    const searchInput = document.getElementById('search-input');
+    const notesList = document.getElementById('notes-list');
+    const editorContainer = document.getElementById('editor-container');
+    const emptyState = document.getElementById('empty-state');
+    const noteTitle = document.getElementById('note-title');
+    const noteContent = document.getElementById('note-content');
+    const btnSave = document.getElementById('btn-save');
+    const btnDelete = document.getElementById('btn-delete');
+    const promptStatus = document.getElementById('prompt-status');
+
+    // Renderizar lista de notas
+    function renderNotes(filterText = '') {
+      notesList.innerHTML = '';
+      
+      const filteredNotes = notes.filter(note => 
+        note.title.toLowerCase().includes(filterText.toLowerCase())
+      );
+
+      if (filteredNotes.length === 0) {
+        notesList.innerHTML = '<li style="color: var(--text-muted); font-size: 0.8rem; padding: 0.5rem;">[Sin resultados]</li>';
+        return;
+      }
+
+      filteredNotes.forEach(note => {
+        const li = document.createElement('li');
+        li.className = `note-item ${note.id === activeNoteId ? 'active' : ''}`;
+        li.textContent = `# ${note.title}`;
+        li.onclick = () => selectNote(note.id);
+        notesList.appendChild(li);
+      });
+    }
+
+    // Iniciar creación de nueva nota
+    function startNewNote() {
+      activeNoteId = null;
+      noteTitle.value = '';
+      noteContent.value = '';
+      
+      editorContainer.style.display = 'flex';
+      emptyState.style.display = 'none';
+      
+      promptStatus.textContent = '> Creando nueva nota. Ingrese título y contenido:';
+      renderNotes(searchInput.value);
+      noteTitle.focus();
+    }
+
+    // Seleccionar nota existente
+    function selectNote(id) {
+      const note = notes.find(n => n.id === id);
+      if (!note) return;
+
+      activeNoteId = note.id;
+      noteTitle.value = note.title;
+      noteContent.value = note.content;
+
+      editorContainer.style.display = 'flex';
+      emptyState.style.display = 'none';
+      promptStatus.textContent = `> Editando: "${note.title}"`;
+      
+      renderNotes(searchInput.value);
+    }
+
+    // Guardar nota
+    function saveNote() {
+      const title = noteTitle.value.trim();
+      const content = noteContent.value;
+
+      if (!title) {
+        alert('Por favor, ingresa un título para la nota primero.');
+        noteTitle.focus();
+        return;
+      }
+
+      if (activeNoteId === null) {
+        // Crear nueva
+        const newNote = {
+          id: Date.now().toString(),
+          title: title,
+          content: content,
+          updatedAt: new Date().toISOString()
+        };
+        notes.unshift(newNote);
+        activeNoteId = newNote.id;
+      } else {
+        // Actualizar existente
+        const note = notes.find(n => n.id === activeNoteId);
+        if (note) {
+          note.title = title;
+          note.content = content;
+          note.updatedAt = new Date().toISOString();
+        }
+      }
+
+      localStorage.setItem('tui_notes', JSON.stringify(notes));
+      promptStatus.textContent = `> Nota "${title}" guardada con éxito.`;
+      renderNotes(searchInput.value);
+    }
+
+    // Eliminar nota
+    function deleteNote() {
+      if (activeNoteId === null) return;
+
+      if (confirm('¿Deseas eliminar esta nota?')) {
+        notes = notes.filter(n => n.id !== activeNoteId);
+        localStorage.setItem('tui_notes', JSON.stringify(notes));
+        
+        activeNoteId = null;
+        editorContainer.style.display = 'none';
+        emptyState.style.display = 'block';
+        promptStatus.textContent = '> Nota eliminada.';
+        renderNotes(searchInput.value);
+      }
+    }
+
+    // Event Listeners
+    btnNew.addEventListener('click', startNewNote);
+    btnSave.addEventListener('click', saveNote);
+    btnDelete.addEventListener('click', deleteNote);
+
+    searchInput.addEventListener('input', (e) => {
+      renderNotes(e.target.value);
+    });
+
+    // Inicialización
+    renderNotes();
+  </script>
+</body>
+</html>
