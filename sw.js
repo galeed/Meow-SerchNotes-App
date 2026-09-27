@@ -1,7 +1,7 @@
 self.addEventListener('install', (e) => {
     e.waitUntil(
         caches.open('mi-app-cache').then((cache) => {
-            return cache.addAll(['/', 'index.html', 'style.css', 'manifest.json']);
+            return cache.addAll(['/', 'index.html', 'manifest.json']);
         })
     );
 });
